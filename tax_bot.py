@@ -279,7 +279,7 @@ def format_tax_result(r, regime, expense_pct, mode, input_amount, wage_base=None
     if net_with_hipa < 0:
         msg += "\n⚠️ Чистая прибыль отрицательная!\n"
     if minimums:
-        msg += f"\n⚡ Минимальные взносы (база < {fmt(wage_base)} Ft)\n"
+        msg += f"\n⚡ Минимальные взносы (база &lt; {fmt(wage_base)} Ft)\n"
     if is_kata and rev_yr > KATA_LIMIT:
         msg += f"\n⚠️ Превышен лимит KATA ({fmt(KATA_LIMIT)} Ft/год)\n"
     if regime == 'atalany' and rev_yr > ATALANY_LIMIT:
@@ -373,7 +373,7 @@ async def show_rates(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "  до 12M Ft → 50 000 Ft/год\n"
         "  12–18M Ft → 120 000 Ft/год\n"
         "  18–25M Ft → 170 000 Ft/год\n"
-        "  >25M Ft → прибыль × 2%\n"
+        "  &gt;25M Ft → прибыль × 2%\n"
         "В других городах ставка может отличаться.",
         parse_mode='HTML',
     )
