@@ -547,7 +547,7 @@ async def tax_regime_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:  # kata
         context.user_data['tax_expense_pct'] = 0
         keyboard = [
-            [InlineKeyboardButton("Знаю оборот (доход)", callback_data="tax_m:revenue")],
+            [InlineKeyboardButton("Знаю оборот (выручку)", callback_data="tax_m:revenue")],
             [InlineKeyboardButton("Знаю чистую прибыль", callback_data="tax_m:net")],
         ]
         await query.edit_message_text(
@@ -622,7 +622,7 @@ async def tax_wage_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['tax_wage_base'] = GUAR_WAGE if choice == 'guar' else MIN_WAGE
 
     keyboard = [
-        [InlineKeyboardButton("Знаю оборот (доход)", callback_data="tax_m:revenue")],
+        [InlineKeyboardButton("Знаю оборот (выручку)", callback_data="tax_m:revenue")],
         [InlineKeyboardButton("Знаю чистую прибыль", callback_data="tax_m:net")],
         [InlineKeyboardButton("Знаю сумму налогов", callback_data="tax_m:tax")],
     ]
