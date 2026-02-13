@@ -876,6 +876,8 @@ def main():
             TAX_NUMBER: [MessageHandler(filters.TEXT & ~filters.COMMAND, tax_number_input)],
         },
         fallbacks=[CommandHandler('cancel', tax_cancel)],
+        allow_reentry=True,
+        conversation_timeout=300,
     )
 
     application.add_handler(CommandHandler('start', start))
