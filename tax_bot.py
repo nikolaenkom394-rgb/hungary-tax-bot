@@ -58,6 +58,8 @@ def _get_db():
 
 def track(user_id, username, event, detail=None):
     """Записать событие в БД."""
+    if user_id == ADMIN_ID:
+        return
     try:
         conn = _get_db()
         if conn:
