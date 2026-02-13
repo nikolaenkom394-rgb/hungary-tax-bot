@@ -347,14 +347,14 @@ def format_tax_result(r, regime, expense_pct, mode, input_amount, wage_base=None
     net_yr = net_with_hipa * 12
     if net_yr > 0:
         if net_yr >= MIGR_GUAR:
-            msg += (f"\n✅ Доход соответствует требованиям миграционки "
+            msg += (f"\n✅ Чистая прибыль соответствует требованиям миграционки "
                     f"({fmt(net_yr)} &gt; {fmt(MIGR_GUAR)} Ft/год)\n")
         elif net_yr >= MIGR_MIN:
-            msg += (f"\n⚠️ Доход соответствует минимальному порогу миграционки "
+            msg += (f"\n⚠️ Чистая прибыль соответствует минимальному порогу "
                     f"({fmt(net_yr)} &gt; {fmt(MIGR_MIN)} Ft/год), "
                     f"но ниже рекомендуемого ({fmt(MIGR_GUAR)} Ft/год)\n")
         else:
-            msg += (f"\n❌ Доход ниже требований миграционки "
+            msg += (f"\n❌ Чистая прибыль ниже требований миграционки "
                     f"({fmt(net_yr)} &lt; {fmt(MIGR_MIN)} Ft/год)\n")
         msg += "Подробнее: /vnzh\n"
 
