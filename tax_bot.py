@@ -6,6 +6,7 @@ Telegram-бот — калькулятор налогов для ИП в Вен�
 
 import os
 import logging
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -25,6 +26,50 @@ logging.basicConfig(
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
+
+# === СТАТИСТИКА (PostgreSQL) ===
+ADMIN_ID = 266424785
+
+_db_conn = None
+
+def _get_db():
+    """Подключение к PostgreSQL (lazy)."""
+    global _db_conn
+    db_url = os.getenv('DATABASE_URL')
+    if not db_url:
+        return None
+    if _db_conn is None or _db_conn.closed:
+        import psycopg2
+        _db_conn = psycopg2.connect(db_url)
+        _db_conn.autocommit = True
+        with _db_conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS stats_events (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL,
+                    username TEXT,
+                    event TEXT NOT NULL,
+                    detail TEXT,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            """)
+    return _db_conn
+
+
+def track(user_id, username, event, detail=None):
+    """Записать событие в БД."""
+    try:
+        conn = _get_db()
+        if conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO stats_events (user_id, username, event, detail) "
+                    "VALUES (%s, %s, %s, %s)",
+                    (user_id, username or '', event, detail),
+                )
+    except Exception as e:
+        logger.warning(f"Stats error: {e}")
+
 
 # === СТАВКИ НАЛОГОВ ВЕНГРИИ 2026 ===
 SZJA_RATE = 0.15
@@ -301,6 +346,8 @@ def format_tax_result(r, regime, expense_pct, mode, input_amount, wage_base=None
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Команда /start"""
+    u = update.effective_user
+    track(u.id, u.username, 'start')
     await update.message.reply_text(
         "🧮 <b>Калькулятор налогов ИП — Венгрия 2026</b>\n\n"
         "🏢 Бот создан командой Hungary Visa Shop\n"
@@ -687,6 +734,9 @@ async def tax_number_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     msg = format_tax_result(result, regime, expense_pct, mode, amount, wage_base)
 
+    u = update.effective_user
+    track(u.id, u.username, 'calc', f'{regime}/{mode}/{amount}')
+
     await update.message.reply_text(msg, parse_mode='HTML')
     context.user_data.clear()
     return ConversationHandler.END
@@ -697,6 +747,47 @@ async def tax_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("❌ Расчёт отменён.")
     context.user_data.clear()
     return ConversationHandler.END
+
+
+async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/stats — статистика (только для админа)"""
+    if update.effective_user.id != ADMIN_ID:
+        return
+    conn = _get_db()
+    if not conn:
+        await update.message.reply_text("БД не подключена.")
+        return
+    with conn.cursor() as cur:
+        cur.execute("SELECT COUNT(DISTINCT user_id) FROM stats_events WHERE event='start'")
+        total_users = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM stats_events WHERE event='calc'")
+        total_calcs = cur.fetchone()[0]
+        cur.execute(
+            "SELECT COUNT(DISTINCT user_id) FROM stats_events "
+            "WHERE event='start' AND created_at > NOW() - INTERVAL '7 days'")
+        week_users = cur.fetchone()[0]
+        cur.execute(
+            "SELECT COUNT(*) FROM stats_events "
+            "WHERE event='calc' AND created_at > NOW() - INTERVAL '7 days'")
+        week_calcs = cur.fetchone()[0]
+        cur.execute(
+            "SELECT detail, COUNT(*) FROM stats_events "
+            "WHERE event='calc' GROUP BY detail ORDER BY COUNT(*) DESC LIMIT 5")
+        top = cur.fetchall()
+    msg = "📊 <b>Статистика бота</b>\n\n"
+    msg += f"<b>Всего:</b>\n"
+    msg += f"  Пользователей: {total_users}\n"
+    msg += f"  Расчётов: {total_calcs}\n\n"
+    msg += f"<b>За 7 дней:</b>\n"
+    msg += f"  Новых пользователей: {week_users}\n"
+    msg += f"  Расчётов: {week_calcs}\n"
+    if top:
+        msg += "\n<b>Популярные расчёты:</b>\n"
+        for detail, cnt in top:
+            parts = (detail or '').split('/')
+            regime = parts[0] if parts else '?'
+            msg += f"  {regime}: {cnt}\n"
+    await update.message.reply_text(msg, parse_mode='HTML')
 
 
 # === ЗАПУСК ===
@@ -727,6 +818,7 @@ def main():
     application.add_handler(CommandHandler('rates', show_rates))
     application.add_handler(CommandHandler('vat', show_vat))
     application.add_handler(CommandHandler('mrot', show_mrot))
+    application.add_handler(CommandHandler('stats', show_stats))
     application.add_handler(tax_handler)
 
     logger.info("Tax bot запущен!")
